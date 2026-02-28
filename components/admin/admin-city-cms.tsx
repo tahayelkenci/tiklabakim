@@ -2,9 +2,10 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronDown, ChevronRight, Globe, EyeOff, MapPin, Save, Loader2, Building2, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Globe, EyeOff, MapPin, Save, Loader2, Building2, Plus, Trash2, Pencil, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { slugify } from '@/lib/slug'
 
 interface District {
   id: string
@@ -114,12 +115,6 @@ function NeighborhoodSection({ districtId, districtSlug, citySlug }: Neighborhoo
   const [showAdd, setShowAdd] = useState(false)
   const [addForm, setAddForm] = useState({ name: '', slug: '', isPublished: false })
   const [saving, setSaving] = useState(false)
-
-  const slugify = (str: string) =>
-    str.toLowerCase()
-      .replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ı/g, 'i')
-      .replace(/ö/g, 'o').replace(/ş/g, 's').replace(/ü/g, 'u')
-      .replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
   const load = async () => {
     setLoading(true)
@@ -313,6 +308,16 @@ export function AdminCityCms({ cities, businessCountMap }: Props) {
   const [editForm, setEditForm] = useState<EditState>({ seoTitle: '', seoDescription: '', seoContent: '' })
   const [saving, setSaving] = useState(false)
 
+  // İlçe ekleme
+  const [showAddDistrict, setShowAddDistrict] = useState<string | null>(null) // city.id
+  const [addDistrictForm, setAddDistrictForm] = useState({ name: '', slug: '' })
+  const [addDistrictSaving, setAddDistrictSaving] = useState(false)
+
+  // İlçe yeniden adlandırma
+  const [renamingDistrict, setRenamingDistrict] = useState<string | null>(null) // district.id
+  const [renameForm, setRenameForm] = useState({ name: '', slug: '' })
+  const [renameSaving, setRenameSaving] = useState(false)
+
   const toggleExpand = (id: string) => {
     setExpanded((prev) => {
       const next = new Set(prev)
@@ -383,6 +388,50 @@ export function AdminCityCms({ cities, businessCountMap }: Props) {
     router.refresh()
   }
 
+  const addDistrict = async (cityId: string) => {
+    if (!addDistrictForm.name || !addDistrictForm.slug) return
+    setAddDistrictSaving(true)
+    const res = await fetch('/api/admin/districts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...addDistrictForm, cityId }),
+    })
+    setAddDistrictSaving(false)
+    if (res.ok) {
+      setShowAddDistrict(null)
+      setAddDistrictForm({ name: '', slug: '' })
+      router.refresh()
+    } else {
+      const err = await res.json()
+      alert(err.error || 'Hata oluştu')
+    }
+  }
+
+  const deleteDistrict = async (districtId: string, districtName: string) => {
+    if (!confirm(`"${districtName}" ilçesini silmek istediğinize emin misiniz?\nBu işlem geri alınamaz.`)) return
+    await fetch(`/api/admin/districts/${districtId}`, { method: 'DELETE' })
+    router.refresh()
+  }
+
+  const startRenameDistrict = (district: District) => {
+    setRenamingDistrict(district.id)
+    setRenameForm({ name: district.name, slug: district.slug })
+    setEditDistrict(null)
+  }
+
+  const saveRenameDistrict = async (districtId: string) => {
+    if (!renameForm.name || !renameForm.slug) return
+    setRenameSaving(true)
+    await fetch(`/api/admin/districts/${districtId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: renameForm.name, slug: renameForm.slug }),
+    })
+    setRenameSaving(false)
+    setRenamingDistrict(null)
+    router.refresh()
+  }
+
   return (
     <div className="space-y-3">
       {cities.map((city) => {
@@ -411,14 +460,12 @@ export function AdminCityCms({ cities, businessCountMap }: Props) {
               </button>
 
               <div className="flex items-center gap-2 flex-shrink-0">
-                {/* SEO düzenle */}
                 <button
                   onClick={() => editCity === city.id ? setEditCity(null) : startEditCity(city)}
                   className="text-xs px-2.5 py-1 rounded-lg text-blue-600 hover:bg-blue-50 font-medium transition-colors"
                 >
                   SEO Düzenle
                 </button>
-                {/* Yayımla toggle */}
                 <button
                   onClick={() => togglePublishCity(city)}
                   className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
@@ -462,43 +509,90 @@ export function AdminCityCms({ cities, businessCountMap }: Props) {
               <div className="border-t border-gray-100">
                 {city.districts.map((district) => {
                   const bizCount = businessCountMap[`${city.slug}/${district.slug}`] || 0
+                  const isRenaming = renamingDistrict === district.id
+
                   return (
                     <div key={district.id} className="border-b border-gray-50 last:border-0">
-                      <div className="flex items-center gap-3 px-4 py-3 pl-10">
-                        <div className="flex items-center gap-1.5 flex-1">
-                          <span className="text-sm text-gray-700">{district.name}</span>
-                          <span className="text-xs text-gray-400 font-mono">/{district.slug}</span>
-                          {bizCount > 0 && (
-                            <span className="flex items-center gap-0.5 text-xs text-gray-400">
-                              <Building2 className="w-3 h-3" />
-                              {bizCount}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {/* SEO düzenle */}
+                      {/* İlçe Satırı */}
+                      {isRenaming ? (
+                        // Yeniden adlandırma formu
+                        <div className="flex items-center gap-2 px-4 py-2 pl-10 bg-orange-50">
+                          <Input
+                            value={renameForm.name}
+                            onChange={(e) => setRenameForm({ name: e.target.value, slug: slugify(e.target.value) })}
+                            placeholder="İlçe adı"
+                            className="h-7 text-xs flex-1"
+                          />
+                          <Input
+                            value={renameForm.slug}
+                            onChange={(e) => setRenameForm(prev => ({ ...prev, slug: slugify(e.target.value) }))}
+                            placeholder="slug"
+                            className="h-7 text-xs w-32 font-mono"
+                          />
                           <button
-                            onClick={() => editDistrict === district.id ? setEditDistrict(null) : startEditDistrict(district)}
-                            className="text-xs px-2 py-0.5 rounded text-blue-600 hover:bg-blue-50 font-medium"
+                            onClick={() => saveRenameDistrict(district.id)}
+                            disabled={renameSaving}
+                            className="p-1 text-green-600 hover:text-green-700"
                           >
-                            SEO
+                            {renameSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                           </button>
-                          {/* Yayımla toggle */}
                           <button
-                            onClick={() => togglePublishDistrict(district)}
-                            className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
-                              district.isPublished
-                                ? 'bg-green-50 text-green-600 hover:bg-red-50 hover:text-red-600'
-                                : 'bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-600'
-                            }`}
+                            onClick={() => setRenamingDistrict(null)}
+                            className="p-1 text-gray-400 hover:text-gray-600"
                           >
-                            {district.isPublished ? 'Yayımda' : 'Gizli'}
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
-                      </div>
+                      ) : (
+                        // Normal satır
+                        <div className="flex items-center gap-3 px-4 py-3 pl-10">
+                          <div className="flex items-center gap-1.5 flex-1">
+                            <span className="text-sm text-gray-700">{district.name}</span>
+                            <span className="text-xs text-gray-400 font-mono">/{district.slug}</span>
+                            {bizCount > 0 && (
+                              <span className="flex items-center gap-0.5 text-xs text-gray-400">
+                                <Building2 className="w-3 h-3" />
+                                {bizCount}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button
+                              onClick={() => editDistrict === district.id ? setEditDistrict(null) : startEditDistrict(district)}
+                              className="text-xs px-2 py-0.5 rounded text-blue-600 hover:bg-blue-50 font-medium"
+                            >
+                              SEO
+                            </button>
+                            <button
+                              onClick={() => togglePublishDistrict(district)}
+                              className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${
+                                district.isPublished
+                                  ? 'bg-green-50 text-green-600 hover:bg-red-50 hover:text-red-600'
+                                  : 'bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-600'
+                              }`}
+                            >
+                              {district.isPublished ? 'Yayımda' : 'Gizli'}
+                            </button>
+                            <button
+                              onClick={() => startRenameDistrict(district)}
+                              className="p-1 text-gray-300 hover:text-blue-500 transition-colors"
+                              title="Yeniden Adlandır"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => deleteDistrict(district.id, district.name)}
+                              className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                              title="Sil"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
 
                       {/* İlçe SEO editor */}
-                      {editDistrict === district.id && (
+                      {!isRenaming && editDistrict === district.id && (
                         <div className="px-4 pb-4 pl-10">
                           <SeoEditor
                             editForm={editForm}
@@ -511,7 +605,7 @@ export function AdminCityCms({ cities, businessCountMap }: Props) {
                       )}
 
                       {/* İlçe SEO önizleme */}
-                      {editDistrict !== district.id && district.seoTitle && (
+                      {!isRenaming && editDistrict !== district.id && district.seoTitle && (
                         <div className="px-4 pb-2 pl-10">
                           <div className="text-xs text-gray-400 bg-gray-50 px-3 py-1.5 rounded">
                             <span className="font-medium">SEO:</span> {district.seoTitle}
@@ -519,9 +613,73 @@ export function AdminCityCms({ cities, businessCountMap }: Props) {
                         </div>
                       )}
 
+                      {/* Semt Yönetimi */}
+                      {!isRenaming && (
+                        <NeighborhoodSection
+                          districtId={district.id}
+                          districtSlug={district.slug}
+                          citySlug={city.slug}
+                        />
+                      )}
                     </div>
                   )
                 })}
+
+                {/* Yeni İlçe Ekle */}
+                {showAddDistrict === city.id ? (
+                  <div className="px-4 py-3 pl-10 bg-orange-50 border-t border-orange-100">
+                    <p className="text-xs font-medium text-gray-700 mb-2">Yeni İlçe Ekle</p>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">İlçe Adı</label>
+                        <Input
+                          value={addDistrictForm.name}
+                          onChange={(e) => setAddDistrictForm({ name: e.target.value, slug: slugify(e.target.value) })}
+                          placeholder="Kadıköy"
+                          className="h-8 text-xs"
+                          autoFocus
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Slug</label>
+                        <Input
+                          value={addDistrictForm.slug}
+                          onChange={(e) => setAddDistrictForm(prev => ({ ...prev, slug: slugify(e.target.value) }))}
+                          placeholder="kadikoy"
+                          className="h-8 text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setShowAddDistrict(null); setAddDistrictForm({ name: '', slug: '' }) }}
+                        className="h-7 text-xs"
+                      >
+                        İptal
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => addDistrict(city.id)}
+                        disabled={addDistrictSaving || !addDistrictForm.name || !addDistrictForm.slug}
+                        className="h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+                      >
+                        {addDistrictSaving && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                        Ekle
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="px-4 py-2 pl-10 border-t border-gray-50">
+                    <button
+                      onClick={() => setShowAddDistrict(city.id)}
+                      className="flex items-center gap-1 text-xs text-orange-500 hover:text-orange-700 font-medium"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Yeni İlçe Ekle
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

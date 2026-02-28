@@ -23,58 +23,62 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }))
   )
 
-  // Şehir sayfaları
-  const cities = await db.business.findMany({
-    where: { isActive: true },
-    select: { city: true },
-    distinct: ['city'],
-  })
+  try {
+    // Şehir sayfaları
+    const cities = await db.business.findMany({
+      where: { isActive: true },
+      select: { city: true },
+      distinct: ['city'],
+    })
 
-  entries.push(
-    ...cities.map((c) => ({
-      url: `${SITE_URL}/pet-kuafor/${c.city}`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.8,
-    }))
-  )
+    entries.push(
+      ...cities.map((c) => ({
+        url: `${SITE_URL}/pet-kuafor/${c.city}`,
+        lastModified: new Date(),
+        changeFrequency: 'weekly' as const,
+        priority: 0.8,
+      }))
+    )
 
-  // İlçe sayfaları
-  const districts = await db.business.findMany({
-    where: { isActive: true },
-    select: { city: true, district: true },
-    distinct: ['city', 'district'],
-  })
+    // İlçe sayfaları
+    const districts = await db.business.findMany({
+      where: { isActive: true },
+      select: { city: true, district: true },
+      distinct: ['city', 'district'],
+    })
 
-  entries.push(
-    ...districts.map((d) => ({
-      url: `${SITE_URL}/pet-kuafor/${d.city}/${d.district}`,
-      lastModified: new Date(),
-      changeFrequency: 'daily' as const,
-      priority: 0.7,
-    }))
-  )
+    entries.push(
+      ...districts.map((d) => ({
+        url: `${SITE_URL}/pet-kuafor/${d.city}/${d.district}`,
+        lastModified: new Date(),
+        changeFrequency: 'daily' as const,
+        priority: 0.7,
+      }))
+    )
 
-  // İşletme profil sayfaları
-  const businesses = await db.business.findMany({
-    where: { isActive: true },
-    select: {
-      city: true,
-      district: true,
-      slug: true,
-      updatedAt: true,
-      plan: true,
-    },
-  })
+    // İşletme profil sayfaları
+    const businesses = await db.business.findMany({
+      where: { isActive: true },
+      select: {
+        city: true,
+        district: true,
+        slug: true,
+        updatedAt: true,
+        plan: true,
+      },
+    })
 
-  entries.push(
-    ...businesses.map((b) => ({
-      url: `${SITE_URL}/pet-kuafor/${b.city}/${b.district}/${b.slug}`,
-      lastModified: b.updatedAt,
-      changeFrequency: (b.plan === 'FREE' ? 'monthly' : 'weekly') as 'monthly' | 'weekly',
-      priority: b.plan === 'ENTERPRISE' ? 0.8 : b.plan === 'PREMIUM' ? 0.7 : 0.5,
-    }))
-  )
+    entries.push(
+      ...businesses.map((b) => ({
+        url: `${SITE_URL}/pet-kuafor/${b.city}/${b.district}/${b.slug}`,
+        lastModified: b.updatedAt,
+        changeFrequency: (b.plan === 'FREE' ? 'monthly' : 'weekly') as 'monthly' | 'weekly',
+        priority: b.plan === 'ENTERPRISE' ? 0.8 : b.plan === 'PREMIUM' ? 0.7 : 0.5,
+      }))
+    )
+  } catch {
+    // DB bağlantısı yoksa sadece statik sayfaları döndür
+  }
 
   return entries
 }

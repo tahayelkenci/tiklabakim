@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { db } from '@/lib/db'
 import { Building2, Users, Calendar, TrendingUp, Crown, CheckCircle } from 'lucide-react'
 

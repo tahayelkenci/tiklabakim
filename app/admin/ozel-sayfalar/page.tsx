@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { db } from '@/lib/db'
 import { AdminPageManager } from '@/components/admin/admin-page-manager'
 

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { db } from '@/lib/db'
 import { AdminPetTypeManager } from '@/components/admin/admin-pet-type-manager'
 

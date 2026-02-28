@@ -3,7 +3,8 @@
 // Sunucuya deploy ederken bu dosya schema.prisma olarak kopyalanır
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextIndex"]
 }
 
 datasource db {

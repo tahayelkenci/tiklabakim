@@ -1,0 +1,35 @@
+name: CI — Type Check & Lint
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck:
+    name: TypeScript Kontrolü
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kod al
+        uses: actions/checkout@v4
+
+      - name: Node.js 18 kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Bağımlılıkları yükle
+        run: npm ci
+
+      - name: Prisma Client oluştur
+        run: npx prisma generate
+
+      - name: TypeScript kontrolü
+        run: npx tsc --noEmit
+
+      - name: Lint kontrolü
+        run: npm run lint
+        continue-on-error: true

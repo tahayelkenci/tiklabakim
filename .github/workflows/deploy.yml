@@ -1,0 +1,73 @@
+name: Deploy — Build & Upload to cPanel
+
+# Bu workflow main branch'e push edildiğinde otomatik çalışır.
+# Önce GitHub Secrets'a şu değerleri ekleyin:
+#   FTP_HOST     → tiklabakim.com veya sunucu IP
+#   FTP_USER     → cPanel kullanıcı adı (tiklabakimcom)
+#   FTP_PASSWORD → cPanel şifresi
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # Manuel tetikleme
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kod al
+        uses: actions/checkout@v4
+
+      - name: Node.js 18 kur
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Bağımlılıkları yükle
+        run: npm ci
+
+      - name: Prisma Client oluştur (MySQL hedefli)
+        run: npx prisma generate
+
+      - name: TypeScript kontrolü
+        run: npx tsc --noEmit
+
+      - name: Next.js build
+        run: npm run build
+        env:
+          # Build sırasında gerçek DB bağlantısı gerekmez
+          DATABASE_URL: "mysql://dummy:dummy@localhost:3306/dummy"
+          NEXTAUTH_URL: "https://tiklabakim.com"
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+
+      - name: Static dosyaları standalone'a kopyala
+        run: |
+          cp -r .next/static .next/standalone/.next/static
+          cp -r public .next/standalone/public
+
+      - name: Deployment paketi oluştur
+        run: |
+          cd .next/standalone
+          tar -czf ../../deploy.tar.gz .
+          echo "Paket boyutu: $(du -sh ../../deploy.tar.gz | cut -f1)"
+
+      - name: FTP ile sunucuya yükle
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: /tiklabakim/
+          include: "deploy.tar.gz"
+          timeout: 120000
+
+      # Not: Tarball extract ve restart.txt için WHM Terminal gereklidir.
+      # Upload sonrası WHM Terminal'de:
+      #   cd /home/tiklabakimcom/tiklabakim
+      #   tar -xzf deploy.tar.gz
+      #   touch tmp/restart.txt

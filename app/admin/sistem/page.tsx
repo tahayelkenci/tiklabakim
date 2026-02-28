@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { db } from '@/lib/db'
 import { Server, Database, Users, Building2, Calendar, Star } from 'lucide-react'
 

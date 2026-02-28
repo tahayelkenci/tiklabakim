@@ -6,19 +6,23 @@ export default auth((req) => {
   const { pathname } = req.nextUrl
   const session = req.auth
 
+  // LiteSpeed X-Forwarded-Proto header'ından kaçınmak için NEXTAUTH_URL kullan
+  const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+
   // Korumalı rotalar
   const protectedRoutes = ['/dashboard', '/hesabim', '/admin']
   const isProtected = protectedRoutes.some((route) => pathname.startsWith(route))
 
-  if (isProtected && !session) {
-    const loginUrl = new URL('/giris', req.url)
+  // NextAuth v5 beta session?.user kontrolü (req.auth {} döndürebilir, null değil)
+  if (isProtected && !session?.user) {
+    const loginUrl = new URL('/giris', baseUrl)
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
   // Admin rotaları - sadece ADMIN rolü
   if (pathname.startsWith('/admin') && session?.user?.role !== 'ADMIN') {
-    return NextResponse.redirect(new URL('/', req.url))
+    return NextResponse.redirect(new URL('/', baseUrl))
   }
 
   // Dashboard - sadece BUSINESS_OWNER veya ADMIN
@@ -27,7 +31,7 @@ export default auth((req) => {
     session?.user?.role !== 'BUSINESS_OWNER' &&
     session?.user?.role !== 'ADMIN'
   ) {
-    return NextResponse.redirect(new URL('/hesabim', req.url))
+    return NextResponse.redirect(new URL('/hesabim', baseUrl))
   }
 
   // Hesabım - BUSINESS_OWNER'ı /dashboard'a yönlendir (yanlış panele girmesin)
@@ -35,18 +39,18 @@ export default auth((req) => {
     pathname.startsWith('/hesabim') &&
     session?.user?.role === 'BUSINESS_OWNER'
   ) {
-    return NextResponse.redirect(new URL('/dashboard', req.url))
+    return NextResponse.redirect(new URL('/dashboard', baseUrl))
   }
 
   // Zaten giriş yapmış kullanıcıları auth sayfalarından yönlendir
   if (
-    session &&
+    session?.user &&
     (pathname === '/giris' || pathname === '/kayit')
   ) {
     const role = session.user?.role
-    if (role === 'ADMIN') return NextResponse.redirect(new URL('/admin', req.url))
-    if (role === 'BUSINESS_OWNER') return NextResponse.redirect(new URL('/dashboard', req.url))
-    return NextResponse.redirect(new URL('/hesabim', req.url))
+    if (role === 'ADMIN') return NextResponse.redirect(new URL('/admin', baseUrl))
+    if (role === 'BUSINESS_OWNER') return NextResponse.redirect(new URL('/dashboard', baseUrl))
+    return NextResponse.redirect(new URL('/hesabim', baseUrl))
   }
 
   return NextResponse.next()

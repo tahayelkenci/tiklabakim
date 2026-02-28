@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { db } from '@/lib/db'
 import { AdminCategoryManager } from '@/components/admin/admin-category-manager'
 

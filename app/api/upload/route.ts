@@ -33,9 +33,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Yükleme başarısız.' }, { status: 500 })
   }
 }
-
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-}

@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import type { Metadata } from 'next'
 import { db } from '@/lib/db'
 import { BusinessCard } from '@/components/business/business-card'

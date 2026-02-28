@@ -7,13 +7,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:seed": "./node_modules/.bin/ts-node --project tsconfig.seed.json scripts/seed.ts",
+    "db:cities": "./node_modules/.bin/ts-node --project tsconfig.seed.json scripts/seed-cities.ts",
+    "db:reset": "rm -f prisma/prisma/dev.db && npx prisma db push && npm run db:seed",
     "db:push:mysql": "prisma db push --schema=prisma/schema.mysql.prisma",
-    "db:generate:mysql": "prisma generate --schema=prisma/schema.mysql.prisma"
+    "db:generate:mysql": "prisma generate --schema=prisma/schema.mysql.prisma",
+    "deploy": "bash scripts/deploy.sh",
+    "deploy:check": "bash scripts/deploy.sh --check"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.2",

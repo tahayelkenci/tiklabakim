@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/cities — yayınlanmış şehirleri döner
 export async function GET() {
   const cities = await db.city.findMany({

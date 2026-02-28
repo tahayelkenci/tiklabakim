@@ -11,7 +11,7 @@ module.exports = {
     {
       name: 'tiklabakim',
       script: '.next/standalone/server.js',
-      cwd: '/home/KULLANICI/tiklabakim', // ← cPanel SSH'da "pwd" ile öğrenin
+      cwd: '/home/tiklabakimcom/tiklabakim',
       instances: 1,
       exec_mode: 'fork',
       env: {

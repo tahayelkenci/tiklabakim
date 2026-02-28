@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { db } from '@/lib/db'
 import { formatPrice } from '@/lib/utils'
 import { TrendingUp, Building2, CreditCard, BarChart3 } from 'lucide-react'
