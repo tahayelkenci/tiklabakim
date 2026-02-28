@@ -66,9 +66,24 @@ echo -e "${YELLOW}📂 Static dosyalar kopyalanıyor...${NC}"
 cp -r .next/static "$DIST_DIR/.next/static"
 cp -r public "$DIST_DIR/public"
 
-# Tarball oluştur
+# Scripts klasörünü ekle (server'da seed çalıştırmak için)
+mkdir -p "$DIST_DIR/scripts"
+cp scripts/seed-cities.cjs "$DIST_DIR/scripts/" 2>/dev/null || true
+
+# .env dosyalarını standalone'dan sil (server'dakini ezmemek için)
+# NOT: Next.js build sırasında .env dosyaları standalone'a kopyalanır,
+# ancak bunlar local değerleri içerir — server'ın kendi .env'i korunmalıdır.
+echo -e "${YELLOW}🔒 .env dosyaları tarball'dan hariç tutulacak (server .env'i korunur)...${NC}"
+find "$DIST_DIR" -maxdepth 1 -name '.env*' -delete
+
+# Tarball oluştur (.env* hariç — zaten silindi, ama çift güvence için)
 echo -e "${YELLOW}📦 Paket oluşturuluyor: $PACKAGE_NAME${NC}"
-tar -czf "$PACKAGE_NAME" -C "$DIST_DIR" .
+tar -czf "$PACKAGE_NAME" \
+  --exclude='.env' \
+  --exclude='.env.*' \
+  --exclude='*.db' \
+  --exclude='*.sqlite' \
+  -C "$DIST_DIR" .
 
 # Dosya boyutu
 SIZE=$(du -sh "$PACKAGE_NAME" | cut -f1)
