@@ -4,15 +4,17 @@
 # =====================================================================
 #
 # Kullanım:
-#   ./scripts/deploy.sh           → Build + tarball oluştur
+#   ./scripts/deploy.sh           → Kod güncelleme paketi (~2-5MB, hızlı)
+#   ./scripts/deploy.sh --full    → Tam paket (~177MB, ilk deploy veya npm değişince)
 #   ./scripts/deploy.sh --check   → Sadece TypeScript kontrolü
-#
-# Gereksinimler: Node.js 18+, npm
 #
 # Sunucuya yükleme sonrası WHM Terminal'de çalıştır:
 #   cd /home/tiklabakimcom/tiklabakim
 #   tar -xzf tiklabakim-TARIH.tar.gz
 #   touch tmp/restart.txt
+#
+# NOT: .env dosyası HİÇBİR ZAMAN tarball'a dahil edilmez.
+#      Sunucudaki .env dosyası korunur.
 # =====================================================================
 
 set -e
@@ -44,6 +46,14 @@ if [[ "$1" == "--check" ]]; then
   exit 0
 fi
 
+FULL_DEPLOY=false
+if [[ "$1" == "--full" ]]; then
+  FULL_DEPLOY=true
+  echo -e "${YELLOW}⚠️  TAM PAKET modu (node_modules dahil, ~177MB)${NC}"
+else
+  echo -e "${GREEN}⚡ KOD GÜNCELLEME modu (hızlı, ~2-5MB)${NC}"
+fi
+
 # Bağımlılıkları kontrol et
 echo -e "${YELLOW}📦 Bağımlılıklar kontrol ediliyor...${NC}"
 if [ ! -d "node_modules" ]; then
@@ -71,19 +81,41 @@ mkdir -p "$DIST_DIR/scripts"
 cp scripts/seed-cities.cjs "$DIST_DIR/scripts/" 2>/dev/null || true
 
 # .env dosyalarını standalone'dan sil (server'dakini ezmemek için)
-# NOT: Next.js build sırasında .env dosyaları standalone'a kopyalanır,
-# ancak bunlar local değerleri içerir — server'ın kendi .env'i korunmalıdır.
 echo -e "${YELLOW}🔒 .env dosyaları tarball'dan hariç tutulacak (server .env'i korunur)...${NC}"
 find "$DIST_DIR" -maxdepth 1 -name '.env*' -delete
 
-# Tarball oluştur (.env* hariç — zaten silindi, ama çift güvence için)
+# Tarball oluştur
 echo -e "${YELLOW}📦 Paket oluşturuluyor: $PACKAGE_NAME${NC}"
-tar -czf "$PACKAGE_NAME" \
-  --exclude='.env' \
-  --exclude='.env.*' \
-  --exclude='*.db' \
-  --exclude='*.sqlite' \
-  -C "$DIST_DIR" .
+
+if $FULL_DEPLOY; then
+  # Tam paket — node_modules dahil
+  tar -czf "$PACKAGE_NAME" \
+    --exclude='.env' \
+    --exclude='.env.*' \
+    --exclude='*.db' \
+    --exclude='*.sqlite' \
+    -C "$DIST_DIR" .
+else
+  # Hafif paket — sadece değişen kod dosyaları
+  tar -czf "$PACKAGE_NAME" \
+    --exclude='.env' \
+    --exclude='.env.*' \
+    --exclude='*.db' \
+    --exclude='*.sqlite' \
+    --exclude='node_modules' \
+    -C "$DIST_DIR" \
+    .next/server \
+    .next/static \
+    server.js \
+    scripts 2>/dev/null || \
+  tar -czf "$PACKAGE_NAME" \
+    --exclude='.env' \
+    --exclude='.env.*' \
+    -C "$DIST_DIR" \
+    .next/server \
+    .next/static \
+    server.js
+fi
 
 # Dosya boyutu
 SIZE=$(du -sh "$PACKAGE_NAME" | cut -f1)
