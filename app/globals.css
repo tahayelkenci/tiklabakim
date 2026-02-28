@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 20 100% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 20 100% 60%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Türkçe font desteği */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Scroll davranışı */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Yükleme animasyonu */
+.loading-spinner {
+  @apply inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin;
+}
+
+/* İşletme kartı hover efekti */
+.business-card {
+  @apply transition-all duration-200 hover:shadow-md hover:-translate-y-0.5;
+}
+
+/* Premium kart border */
+.business-card-premium {
+  @apply border-amber-400 border-2;
+}
+
+/* Arama kutusu */
+.search-input {
+  @apply w-full px-4 py-3 text-lg border-0 outline-none bg-transparent;
+}
+
+/* Rating yıldızları */
+.star-rating {
+  @apply flex items-center gap-0.5;
+}
+
+/* Harita container */
+.map-container {
+  @apply rounded-xl overflow-hidden border border-gray-200;
+}

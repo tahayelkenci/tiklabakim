@@ -1,0 +1,525 @@
+// Tıkla Bakım — Prisma Schema (MySQL — Production)
+// cPanel + MySQL uyumlu
+// Sunucuya deploy ederken bu dosya schema.prisma olarak kopyalanır
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// KULLANICI SİSTEMİ
+// ============================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique @db.VarChar(255)
+  emailVerified DateTime?
+  name          String?   @db.VarChar(255)
+  phone         String?   @db.VarChar(20)
+  password      String?   @db.VarChar(255)
+  image         String?   @db.Text
+  role          String    @default("PET_OWNER") // PET_OWNER | BUSINESS_OWNER | ADMIN
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  pets          Pet[]
+  appointments  Appointment[]
+  businesses    Business[]
+  reviews       Review[]
+  notifications Notification[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// NextAuth Adapter için
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String  @db.VarChar(50)
+  provider          String  @db.VarChar(50)
+  providerAccountId String  @db.VarChar(255)
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String? @db.VarChar(50)
+  scope             String? @db.VarChar(500)
+  id_token          String? @db.Text
+  session_state     String? @db.VarChar(255)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @db.VarChar(255)
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String   @db.VarChar(255)
+  token      String   @unique @db.VarChar(255)
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================================
+// KATEGORİ
+// ============================================================
+
+model Category {
+  id          String     @id @default(cuid())
+  name        String     @db.VarChar(100)
+  slug        String     @unique @db.VarChar(100)
+  description String?    @db.Text
+  icon        String?    @db.VarChar(10)
+  isActive    Boolean    @default(true)
+  order       Int        @default(0)
+  createdAt   DateTime   @default(now())
+
+  businesses  Business[]
+
+  @@map("categories")
+}
+
+// ============================================================
+// ŞEHİR / İLÇE / SEMT
+// ============================================================
+
+model City {
+  id             String     @id @default(cuid())
+  name           String     @db.VarChar(100)
+  slug           String     @unique @db.VarChar(100)
+  isPublished    Boolean    @default(false)
+  seoTitle       String?    @db.VarChar(255)
+  seoDescription String?    @db.Text
+  seoContent     String?    @db.LongText
+
+  districts      District[]
+
+  @@map("cities")
+}
+
+model District {
+  id             String  @id @default(cuid())
+  name           String  @db.VarChar(100)
+  slug           String  @db.VarChar(100)
+  cityId         String
+  isPublished    Boolean @default(false)
+  seoTitle       String? @db.VarChar(255)
+  seoDescription String? @db.Text
+  seoContent     String? @db.LongText
+
+  city           City    @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  neighborhoods  Neighborhood[]
+
+  @@unique([cityId, slug])
+  @@index([cityId])
+  @@map("districts")
+}
+
+model Neighborhood {
+  id             String   @id @default(cuid())
+  name           String   @db.VarChar(100)
+  slug           String   @db.VarChar(100)
+  districtId     String
+  isPublished    Boolean  @default(false)
+  seoTitle       String?  @db.VarChar(255)
+  seoDescription String?  @db.Text
+  seoContent     String?  @db.LongText
+
+  district       District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  businesses     Business[]
+
+  @@unique([districtId, slug])
+  @@index([districtId])
+  @@map("neighborhoods")
+}
+
+// ============================================================
+// İŞLETME
+// ============================================================
+
+model Business {
+  id            String   @id @default(cuid())
+  googlePlaceId String?  @unique @db.VarChar(255)
+  slug          String   @unique @db.VarChar(255)
+  name          String   @db.VarChar(255)
+  description   String?  @db.Text
+  phone         String?  @db.VarChar(20)
+  email         String?  @db.VarChar(255)
+  website       String?  @db.VarChar(500)
+
+  // Adres
+  address       String   @db.VarChar(500)
+  city          String   @db.VarChar(100)
+  district      String   @db.VarChar(100)
+  neighborhood  String?  @db.VarChar(100) // legacy alan (düz text)
+  lat           Float?
+  lng           Float?
+
+  // Plan & Durum
+  plan          String   @default("FREE") // FREE | BASIC | PREMIUM | ENTERPRISE
+  planExpiresAt DateTime?
+  isVerified    Boolean  @default(false)
+  isFeatured    Boolean  @default(false)
+  featuredScore Int      @default(0)
+  isActive      Boolean  @default(true)
+
+  adBalance     Decimal  @default(0) @db.Decimal(10, 2)
+
+  // Görsel
+  logo          String?  @db.VarChar(500)
+  coverPhoto    String?  @db.VarChar(500)
+
+  // Sosyal medya
+  instagram     String?  @db.VarChar(255)
+  facebook      String?  @db.VarChar(255)
+
+  // SEO & İçerik
+  metaTitle     String?  @db.VarChar(255)
+  metaDesc      String?  @db.Text
+  content       String?  @db.LongText
+
+  // Kategori ilişkisi
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id])
+
+  // Semt ilişkisi
+  neighborhoodId  String?
+  neighborhoodRef Neighborhood? @relation(fields: [neighborhoodId], references: [id])
+
+  // Sahip
+  ownerId       String?
+  owner         User?    @relation(fields: [ownerId], references: [id])
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  photos          BusinessPhoto[]
+  services        Service[]
+  workingHours    WorkingHours[]
+  appointments    Appointment[]
+  reviews         Review[]
+  campaigns       Campaign[]
+  groomingRecords GroomingRecord[]
+
+  @@index([city, district])
+  @@index([city])
+  @@index([plan, featuredScore])
+  @@index([isActive, isVerified])
+  @@index([categoryId])
+  @@index([neighborhoodId])
+  @@index([ownerId])
+  @@fulltext([name, description, address])
+  @@map("businesses")
+}
+
+model BusinessPhoto {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  url        String   @db.VarChar(500)
+  caption    String?  @db.VarChar(255)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([businessId])
+  @@map("business_photos")
+}
+
+// ============================================================
+// HİZMETLER
+// ============================================================
+
+model Service {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name        String   @db.VarChar(255)
+  category    String   @default("tum") @db.VarChar(50) // kedi | kopek | tum
+  price       Decimal? @db.Decimal(10, 2)
+  duration    Int?
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  appointments Appointment[]
+
+  @@index([businessId])
+  @@map("services")
+}
+
+// ============================================================
+// PET PROFİLİ
+// ============================================================
+
+model Pet {
+  id        String    @id @default(cuid())
+  ownerId   String
+  owner     User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name      String    @db.VarChar(100)
+  type      String    @db.VarChar(20) // DOG | CAT | RABBIT | BIRD | OTHER
+  breed     String?   @db.VarChar(100)
+  birthDate DateTime?
+  weight    Float?
+  gender    String?   @db.VarChar(10)
+  photo     String?   @db.VarChar(500)
+  notes     String?   @db.Text
+  allergies String?   @db.Text
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  vaccines        Vaccine[]
+  appointments    Appointment[]
+  groomingRecords GroomingRecord[]
+
+  @@index([ownerId])
+  @@map("pets")
+}
+
+// ============================================================
+// RANDEVU
+// ============================================================
+
+model Appointment {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  petId      String
+  pet        Pet      @relation(fields: [petId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  serviceId  String?
+  service    Service? @relation(fields: [serviceId], references: [id])
+
+  date       DateTime
+  duration   Int
+  status     String   @default("PENDING") @db.VarChar(20) // PENDING | CONFIRMED | IN_PROGRESS | COMPLETED | CANCELLED | NO_SHOW
+  notes      String?  @db.Text
+
+  noShow     Boolean  @default(false)
+
+  groomingNotes String?  @db.Text
+  totalPrice    Decimal? @db.Decimal(10, 2)
+  completedAt   DateTime?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  photos AppointmentPhoto[]
+
+  @@index([businessId, date])
+  @@index([userId])
+  @@index([petId])
+  @@index([status])
+  @@map("appointments")
+}
+
+model AppointmentPhoto {
+  id            String      @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  url           String      @db.VarChar(500)
+  type          String      @db.VarChar(10) // before | after
+  createdAt     DateTime    @default(now())
+
+  @@index([appointmentId])
+  @@map("appointment_photos")
+}
+
+// ============================================================
+// YORUM / PUAN
+// ============================================================
+
+model Review {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  rating     Int
+  comment    String?  @db.Text
+  isVerified Boolean  @default(false)
+  isVisible  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([businessId, userId])
+  @@index([businessId, rating])
+  @@index([userId])
+  @@map("reviews")
+}
+
+// ============================================================
+// BAKIM GEÇMİŞİ
+// ============================================================
+
+model GroomingRecord {
+  id         String   @id @default(cuid())
+  petId      String
+  pet        Pet      @relation(fields: [petId], references: [id], onDelete: Cascade)
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  date       DateTime
+  services   String   @db.Text // JSON string
+  notes      String?  @db.Text
+  price      Decimal? @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
+
+  @@index([petId])
+  @@index([businessId])
+  @@map("grooming_records")
+}
+
+// ============================================================
+// ÇALIŞMA SAATLERİ
+// ============================================================
+
+model WorkingHours {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  dayOfWeek  Int      // 0=Pazar, 1=Pazartesi...6=Cumartesi
+  openTime   String   @db.VarChar(5)  // "09:00"
+  closeTime  String   @db.VarChar(5)  // "18:00"
+  isClosed   Boolean  @default(false)
+
+  @@unique([businessId, dayOfWeek])
+  @@map("working_hours")
+}
+
+// ============================================================
+// BİLDİRİMLER
+// ============================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   @db.VarChar(50)
+  title     String   @db.VarChar(255)
+  body      String   @db.Text
+  data      String?  @db.Text // JSON string
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ============================================================
+// AŞI TAKVİMİ
+// ============================================================
+
+model Vaccine {
+  id          String    @id @default(cuid())
+  petId       String
+  pet         Pet       @relation(fields: [petId], references: [id], onDelete: Cascade)
+  name        String    @db.VarChar(100)
+  date        DateTime
+  nextDueDate DateTime?
+  notes       String?   @db.Text
+  createdAt   DateTime  @default(now())
+
+  @@index([petId])
+  @@index([nextDueDate])
+  @@map("vaccines")
+}
+
+// ============================================================
+// KAMPANYA & REKLAM
+// ============================================================
+
+model Campaign {
+  id             String   @id @default(cuid())
+  businessId     String
+  business       Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  title          String   @db.VarChar(255)
+  description    String   @db.Text
+  targetCity     String?  @db.VarChar(100)
+  targetDistrict String?  @db.VarChar(100)
+  targetPetType  String?  @db.VarChar(50)
+  budget         Decimal  @db.Decimal(10, 2)
+  spent          Decimal  @default(0) @db.Decimal(10, 2)
+  isActive       Boolean  @default(true)
+  startsAt       DateTime
+  endsAt         DateTime
+  createdAt      DateTime @default(now())
+
+  @@index([businessId])
+  @@index([isActive, startsAt, endsAt])
+  @@map("campaigns")
+}
+
+// ============================================================
+// SİSTEM AYARLARI
+// ============================================================
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique @db.VarChar(100)
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+// ============================================================
+// PET TÜRLERİ (CMS)
+// ============================================================
+
+model PetType {
+  id             String  @id @default(cuid())
+  name           String  @db.VarChar(50)
+  slug           String  @unique @db.VarChar(50)
+  icon           String? @db.VarChar(10)
+  isActive       Boolean @default(true)
+  seoTitle       String? @db.VarChar(255)
+  seoDescription String? @db.Text
+  seoContent     String? @db.LongText
+
+  @@map("pet_types")
+}
+
+// ============================================================
+// ÖZEL SAYFALAR (CMS)
+// ============================================================
+
+model Page {
+  id        String   @id @default(cuid())
+  slug      String   @unique @db.VarChar(100)
+  title     String   @db.VarChar(255)
+  content   String?  @db.LongText
+  metaTitle String?  @db.VarChar(255)
+  metaDesc  String?  @db.Text
+  isActive  Boolean  @default(true)
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("pages")
+}

@@ -1,0 +1,50 @@
+# PetPati — Apache .htaccess (cPanel için)
+# Bu dosyayı public_html kök dizinine koyun
+# Next.js Node.js app'e proxy yapar
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # HTTPS yönlendirme
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+
+  # www yönlendirme (opsiyonel)
+  # RewriteCond %{HTTP_HOST} !^www\.
+  # RewriteRule ^(.*)$ https://www.%{HTTP_HOST}/$1 [R=301,L]
+
+  # Statik dosyalar (public klasörünü doğrudan sun)
+  RewriteCond %{REQUEST_URI} ^/uploads/
+  RewriteRule ^(.*)$ $1 [L]
+
+  # Node.js App'e yönlendir (cPanel Node.js App özelliği)
+  # Port numarasını Node.js App'inizin portuna göre değiştirin
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]
+</IfModule>
+
+# Güvenlik başlıkları
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set X-XSS-Protection "1; mode=block"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Statik dosyalar için cache
+<FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|ico|css|js|woff|woff2)$">
+  <IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresDefault "access plus 1 year"
+  </IfModule>
+  <IfModule mod_headers.c>
+    Header append Cache-Control "public, immutable"
+  </IfModule>
+</FilesMatch>
+
+# Hassas dosyaları gizle
+<FilesMatch "\.(env|env\.local|prisma|log)$">
+  Order allow,deny
+  Deny from all
+</FilesMatch>
